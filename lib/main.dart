@@ -26,7 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _myController =
       TextEditingController(); // Step 1: Creatint texteditig Controller
-  // String _downloadStatus = "Eneter URL....";
+
+  String _downloadStatus = "Eneter URL....";
 
   Future<void> _downloadVideo() async {
     String youtubeUrl = _myController.text.trim(); // Get input URL
@@ -44,20 +45,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     String savePath = "$newFolderPath\\%(title)s.%(ext)s";
 
-    Process.run(
+    setState(() {
+      _downloadStatus =
+          "Downloading..."; // ✅ NEW: Show "Downloading..." message
+    });
+
+    Process.start(
       'yt-dlp',
       ['-o', savePath, youtubeUrl], // -o specifies output location
-    ).then((result) {
+    ).then((process) {
+      process.stdout.transform(SystemEncoding().decoder).listen((data) {
+        setState(() {
+          _downloadStatus = data; // ✅ NEW: Live update progress
+        });
+      });
+
       // print("Download Complete: ${result.stdout}");
       // print("Errors (if any): ${result.stderr}");
 
-      if (result.exitCode == 0) {
-        print("✅ Download Complete: ${result.stdout}");
-      } else {
-        print("❌ Download Failed: ${result.stderr}");
-      }
+      process.exitCode.then((exitCode) {
+        setState(() {
+          _downloadStatus =
+              exitCode == 0 ? "✅ Download Complete!" : "❌ Download Failed!";
+        });
+      });
     });
   }
+  //     if (result.exitCode == 0) {
+  //       print("✅ Download Complete: ${result.stdout}");
+  //     } else {
+  //       print("❌ Download Failed: ${result.stderr}");
+  //     }
+  //   });
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +136,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Text(
+              // ✅ NEW: Display download status
+              _downloadStatus,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
