@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-// import 'package:process_run/process_run.dart';
 
 void main() {
   runApp(const MainApp());
@@ -24,87 +22,85 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final TextEditingController _myController =
-      TextEditingController(); // Step 1: Creatint texteditig Controller
+  final TextEditingController _myController = TextEditingController();  // creating text editng controler
 
-  String _downloadStatus = "Eneter URL....";
+  String _downloadStatus = "Enter URL....";
+  double _progress = 0.0;
+  String _downloadMessage = ""; // Message for file path
 
   Future<void> _downloadVideo() async {
-    String youtubeUrl = _myController.text.trim(); // Get input URL
-
-    if (youtubeUrl.isEmpty) return; // Do nothing if empty
+    String youtubeUrl = _myController.text.trim();  // Get input URL
+    if (youtubeUrl.isEmpty) return;
 
     String userHome =
         Platform.environment['USERPROFILE'] ?? "C:\\Users\\Default";
-    // Define the new folder path inside the user's home directory
     String newFolderPath = "$userHome\\YouTube_Downloads";
     Directory newFolder = Directory(newFolderPath);
     if (!newFolder.existsSync()) {
-      newFolder.createSync(recursive: true); // Creates the folder automatically
+      newFolder.createSync(recursive: true);
       print("Created folder: $newFolderPath");
     }
     String savePath = "$newFolderPath\\%(title)s.%(ext)s";
 
     setState(() {
-      _downloadStatus =
-          "Downloading..."; // ✅ NEW: Show "Downloading..." message
+      _downloadStatus = "Downloading...";
+      _progress = 0.0;  // Reset progress at start
+      _downloadMessage = ""; // Reset message on new download
     });
 
-    Process.start(
-      'yt-dlp',
-      ['-o', savePath, youtubeUrl], // -o specifies output location
-    ).then((process) {
+    Process.start('yt-dlp', ['-o', savePath, youtubeUrl, "--progress"]).then((
+      process,
+    ) {
       process.stdout.transform(SystemEncoding().decoder).listen((data) {
-        setState(() {
-          _downloadStatus = data; // ✅ NEW: Live update progress
-        });
+        RegExp regex = RegExp(r'(\d+)%');  // Extract percentage
+        Match? match = regex.firstMatch(data);
+        if (match != null) {
+          double percent = double.parse(match.group(1)!) / 100.0;
+          setState(() {
+            _progress = percent;
+            _downloadStatus =
+                "Downloading... ${(percent * 100).toStringAsFixed(0)}%";
+          });
+        }
       });
-
-      // print("Download Complete: ${result.stdout}");
-      // print("Errors (if any): ${result.stderr}");
 
       process.exitCode.then((exitCode) {
         setState(() {
+          _progress = exitCode == 0 ? 1.0 : 0.0;
           _downloadStatus =
-              exitCode == 0 ? "✅ Download Complete!" : "❌ Download Failed!";
+              exitCode == 0 ? "Download Complete!" : "Download Failed!";
+          if (exitCode == 0) {
+            _downloadMessage =
+                "Video saved in: $newFolderPath"; // Show file path
+          }
         });
       });
     });
   }
-  //     if (result.exitCode == 0) {
-  //       print("✅ Download Complete: ${result.stdout}");
-  //     } else {
-  //       print("❌ Download Failed: ${result.stderr}");
-  //     }
-  //   });
-  // }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 121, 104, 152),
+      backgroundColor: const Color.fromARGB(255, 179, 117, 179),
       appBar: AppBar(
         title: const Text(
           "YouTube Video Downloader",
           style: TextStyle(
-            fontSize: 20, // Adjusts text size
-            fontWeight: FontWeight.bold, // Makes text bold
-            letterSpacing: 1.5, // Adds spacing between letters
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
             color: Colors.white,
           ),
         ),
-        centerTitle: true, // Correctly placed
+        centerTitle: true,
         backgroundColor: const Color.fromARGB(255, 92, 38, 118),
       ),
-
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Input Field for YouTube Link
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              // text field
               child: TextField(
                 controller: _myController,
                 decoration: InputDecoration(
@@ -118,38 +114,60 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20), // Spacer
-            // Download Button
+            const SizedBox(height: 20),
             SizedBox(
-              width: 200, // Increases button width
-              height: 50, // Increases button height
+              width: 200,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _downloadVideo,
-                // Yt download function
-                // String youtubeUrl = _myController.text;
-                // print("URL: $youtubeUrl");
-                // },
                 child: const Text(
                   "Download",
-                  style: TextStyle(
-                    fontSize: 20, // Increase text size
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-            Text(
-              // ✅ NEW: Display download status
-              _downloadStatus,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+
+            // Progress Bar
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 30),
+              child: Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: _progress,  //  Dynamic progress value
+                    backgroundColor: Colors.grey,
+                    color: Colors.green,
+                    minHeight: 8,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _downloadStatus,  // download percentage
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
+
+            const SizedBox(height: 10),
+
+            // Show Download Path
+            if (_downloadMessage.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 30),
+                child: Text(
+                  _downloadMessage, 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
