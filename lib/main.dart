@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 // import 'package:process_run/process_run.dart';
 
@@ -11,9 +12,7 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: HomeScreen());
+    return MaterialApp(debugShowCheckedModeBanner: false, home: HomeScreen());
   }
 }
 
@@ -27,21 +26,37 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _myController =
       TextEditingController(); // Step 1: Creatint texteditig Controller
-      // String _downloadStatus = "Eneter URL....";
-      Future<void> _downloadVideo() async {
+  // String _downloadStatus = "Eneter URL....";
+
+  Future<void> _downloadVideo() async {
     String youtubeUrl = _myController.text.trim(); // Get input URL
 
     if (youtubeUrl.isEmpty) return; // Do nothing if empty
 
-    // Run yt-dlp command
-    ProcessResult result = await Process.run(
-      'yt-dlp',
-      [youtubeUrl], // Basic download
-      runInShell: true, // Needed for Windows
-    );
+    String userHome =
+        Platform.environment['USERPROFILE'] ?? "C:\\Users\\Default";
+    // Define the new folder path inside the user's home directory
+    String newFolderPath = "$userHome\\YouTube_Downloads";
+    Directory newFolder = Directory(newFolderPath);
+    if (!newFolder.existsSync()) {
+      newFolder.createSync(recursive: true); // Creates the folder automatically
+      print("Created folder: $newFolderPath");
+    }
+    String savePath = "$newFolderPath\\%(title)s.%(ext)s";
 
-    print("Download Output: ${result.stdout}");
-    print("Error (if any): ${result.stderr}");
+    Process.run(
+      'yt-dlp',
+      ['-o', savePath, youtubeUrl], // -o specifies output location
+    ).then((result) {
+      // print("Download Complete: ${result.stdout}");
+      // print("Errors (if any): ${result.stderr}");
+
+      if (result.exitCode == 0) {
+        print("✅ Download Complete: ${result.stdout}");
+      } else {
+        print("❌ Download Failed: ${result.stderr}");
+      }
+    });
   }
 
   @override
@@ -90,9 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 50, // Increases button height
               child: ElevatedButton(
                 onPressed: _downloadVideo,
-                  // Yt download function
-                  // String youtubeUrl = _myController.text;
-                  // print("URL: $youtubeUrl");
+                // Yt download function
+                // String youtubeUrl = _myController.text;
+                // print("URL: $youtubeUrl");
                 // },
                 child: const Text(
                   "Download",
